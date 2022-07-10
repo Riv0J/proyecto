@@ -1,0 +1,120 @@
+#CONSTANTES
+    #obtener el diccionario con el código base64.
+    #he buscado relaciones entre el ASCII y el base64
+    
+    #crear diccionario base64
+dicBase64 = {}
+lista1 = [26,26,10,1,1]
+lista2 = [65,97,48,43,47]
+cont=0
+for i in range(len(lista1)):
+    for j in range(lista1[i]):
+        dicBase64[cont]=chr(lista2[i]+j)
+        cont+=1
+print(dicBase64)
+
+#INPUT
+
+user = 'usuario'
+passwd = 'usuario'
+
+#paso 1 concatenar
+userpass = user+':'+passwd
+
+print(userpass)
+
+#paso 2 obtener string con valores convertir a ascii binario
+    #paso 2.1
+    #Una cadena es iterable caracter a caracter usando un form
+    #con la función ord(ch), convertimos el caracter a su valor decimal en ASCII
+userpassAscii=[]
+for ch in userpass:
+    userpassAscii.insert(0,ord(ch))
+print(userpassAscii)
+    #paso 2.2
+    #Tenemos que meter en un string a todos los valores
+    #sabemos que cada un ocupa 8 bit, y que estos estan en los ocho bits
+    #de menor peso. Lo que hacemos es mover el dato tantos bits como sea 
+    #necesario multplo de 8 y lo encajamos dentro del string con una operación or(|)
+    #Ejemplo valor posición 0, ocupa los primeros 8 bits de la derecha del string
+    #valor de la posición 1, del bit 9 al 16, el de la posición 2 del 17 al 24
+    #y asi sucesivamente. La función bit() nos muestra como queda el string
+    #una vez que estan todos los datos en una sola cadena de bits
+for i in range(len(userpassAscii)):
+    if i == 0:
+        string = userpassAscii[i]
+    else:
+        string = string | (userpassAscii[i]<<(i*8))
+print(bin(string))
+
+#paso 3 dividir en grupos de 6
+    #cuantos grupos de 6 hay en los bits que tenemos, si sale exacta la división
+    #los grupos será el resultado de la división, si no, será uno más de la 
+    #división entera y habrá que meter bits de relleno, por los bits de menos
+    #peso del string hasta que sea multiplo
+    
+    #número de grupos
+if (((len(userpassAscii))*8)%6) == 0 :
+    timesright = (((len(userpassAscii))*8)//6) 
+else: 
+    timesright = ((len(userpassAscii))*8)//6 + 1
+    
+    #Al pasar de números de 8 bits a valores de 6 bits, la situación que tenemos 
+    #es que en 24 bits ahora metemos 4 valores y no 3, para que el cuadre sea 
+    #perfecto. Al dividir el número de caracteres que tenemos entre 3, vemos si 
+    #va a cuadrar y si no, como será el descuadre, que solo puede ser 2 bits, o 
+    #de cuatro bits. Para saber en la recepción si el pad (los bits añadidos), son 
+    #dos o cuatro, al resultado final en base64 se añade un = (si el descuadre
+    #es de 4 bits) , == si es de 2 bits. 
+    
+    #la siguiente parte del código mira cual es el descuadre, y cuantos = hay
+    #que añadir 
+cont=len(userpassAscii)%3
+npads=0
+while cont%3:
+    cont+=1
+    npads+=1
+nbits = (len(userpassAscii)*8)
+
+    #añade los bits necesarios para que el número de bits sea multiplo de 6
+    #que es el objetivo del pad
+while nbits%6:
+    string = string << 1
+    nbits+=1
+
+print(bin(string))
+print(npads)
+
+#paso 4. Vamos a sacar los valores decimales correspondiente a cada grupo de 6 bits
+    #La idea de la siguiente parte es hacer una máscara con 6 bits, la cual al
+    #hacer un AND (&) con cualquier string de datos se queda con los seis de menor
+    #peso y el resto los deja a cero. Eso será un grupo, en este caso el que esta 
+    #en la zona del menor peso. Ya tenemos a uno, como obtener el resto. Movemos el 
+    #string seis bits a la derecha, y el siguiente valor esta en los seis bits de 
+    #menor peso, y volvemos a ejecutar la máscara. Así vamos sacando valor a valor
+    
+print(timesright)
+mask6bit = 0b111111
+newList = []
+for i in range(timesright):
+    stringTem = string & mask6bit
+    newList.insert(0,stringTem)
+    string = string>>(6)
+print(newList)
+
+#paso 5 conversión grupos de 6 bits a base64
+    #primero hago la conversión valor a valor
+cadena=[]
+for value in newList:
+    cadena.append(dicBase64[value])
+print(cadena)
+    #añadimos a la cadena los = en función del pad añadido (lo necesitamos para 
+    #la decodificación
+for i in range(npads):
+    cadena.append('=')
+    #unimos todos los caracteres de la conversión en una sola cadena usando 
+    #join, la cadena llamante del método ('') es lo que se pone entre caracter
+    #y caracter en este caso nada('')
+cadenaFinal = ''.join(cadena)
+    #mostramos la cadena final en utf-8 como lo hace http
+print(cadenaFinal.encode('UTF-8'))
