@@ -11,15 +11,15 @@ patronIf = '^[g,f][0,2,3]_[1-20]$'
 # ? = 0 o 1
 # * = 0 o más
 # + = 1 o más
-DBusuarios = 'DBusuarios.shlv'
-DBformacion = 'DBformacion.shlv'
+usersDBfile = 'usersDB.shlv'
+interfacesDBfile = 'interfacesDB.shlv'
 
 #generamos objeto auth de clase HTTPBasicAuth
 auth = HTTPBasicAuth()
 
 @auth.get_password
 def get_password(usuario):
-    users = m.readDB(DBusuarios)
+    users = m.readDB(usersDBfile)
     for user in users.values():
         if user['user'] == usuario:
             return user['passwd']
@@ -27,68 +27,10 @@ def get_password(usuario):
 app = Flask(__name__)
 app.config['DEBUG']=True
 
-@app.route('/', methods=['GET'])
-@auth.login_required
+@app.route('/', methods=['GET','POST'])
 def web():
     return '<h1>hola</h1>'
-    
-@app.route('/api/formacion/all', methods=['GET'])
-@auth.login_required
-def getAll():
-    #if 'user' in request.args and 'passwd' in request.args:
-        #if m.testUser(request.args['user'],request.args['passwd']):
-    return jsonify(m.readDB(DBformacion))
-        #return '', 401 
-    #else:
-        #return 'query params no existen', 401
-        
-@app.route('/api/usuarios', methods=['GET'])
-@auth.login_required
-def getUsers():
-	return jsonify(m.readDB(DBusuarios))
-	
-@app.route('/api/formacion/<curso>', methods=['GET','POST'])
-@auth.login_required
-def getIfUri(curso):
-    if request.method == 'POST' and curso == 'all':
-        return 'error: no uses all cuando trates de hacer un post'
-        
-    ofertasDB = m.readDB(DBformacion)
-    if curso in ofertasDB:
-         return jsonify(ofertasDB[curso])
-    else:
-        if request.method == 'POST' and request.json: #si no encuentra el curso, busca si se usar el metodo POST y un request, si esto se cumple entonces se entiende que se quiere agregar un curso
-            if 'Nombre' in request.json: #de momento crea el recurso sin utilizar información del json en el cuerpo, pero lo requiere para continuar.
-                ofertasDB = shelve.open(DBformacion)
-                ofertasDB[curso] = {'Nombre':curso, 'Propuestos':'1', 'Recurso de consulta':url_for('getIfUri',curso=curso)}
-                ofertasDB.close()
-                return jsonify(request.json),201
-            else:
-                return jsonify({'error':'json incompleto'}),404
-    return 'error: recurso no existente', 404
-    
-    '''
-        interfacesDB = m.readDB(interfacesDBfile)
-        if ifname in interfacesDB:
-            return jsonify(interfacesDB[ifname])
-        return jsonify ({'error':'interface no existente'}), 404
 
-    elif request.method =='POST':
-    @auth.login_required
-        if request.json:
-            if 'ip' in request.json or 'status' in request.json:
-                interfacesDB = shelve.open(interfacesDBfile)
-                interfacesDB[ifname] = {'ip':request.json.get('ip',interfacesDB[ifname]['ip']), 'status':request.json.get('status',interfacesDB[ifname]['status']),'uri':url_for('getIfUri',ifname=ifname)}
-                interfacesDB.close()
-                return jsonify(request.json),201
-            else:
-                return jsonify({'error':'json incompleto'}),404
-        else:
-            return jsonify({'post error':'solicitud deber ser formato json'}),404
-                
-      '''  
-                
-'''
 @app.route('/api/v1/users', methods=['GET'])
 @auth.login_required
 def getUsers():
@@ -147,7 +89,9 @@ def getIfUri(ifname):
                 return jsonify({'error':'json incompleto'}),404
         else:
             return jsonify({'post error':'solicitud deber ser formato json'}),404
-                               
+                
+        
+                
 
 @app.route('/api/v1/interfaces/<ifname>', methods=['DELETE']) 
 def deleteIfUri(ifname):
@@ -157,5 +101,5 @@ def deleteIfUri(ifname):
         interfacesDB.close()
         return ifname + ' deleted'
     return 'esa interfaz no existe',404
-'''
+
 app.run(host='0.0.0.0', port='8080')
