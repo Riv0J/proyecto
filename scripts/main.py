@@ -66,6 +66,40 @@ def getIfUri(curso):
             else:
                 return jsonify({'error':'json incompleto'}),404
     return 'error: recurso no existente', 404
+
+#añadir participante al curso especificado
+@app.route('/api/formacion/<curso>/participantes', methods=['POST'])
+@auth.login_required
+def addUserToCourse(curso):
+    if curso == 'all':
+        return 'error: no uses all cuando trates de hacer un post'
+        
+    ofertasDB = m.readDB(DBformacion)
+
+    #comprobar que el curso exista
+    if curso not in ofertasDB:
+        return 'error: recurso no existente', 404
+    
+    nombreCurso = ofertasDB[curso]['Nombre']
+    usuario = auth.current_user() #devuelve el usuario con el que se ha autenticado
+    
+    #comprobar que el usuario aún no esta inscrito en el curso
+    if usuario in ofertasDB[curso]['Participantes']:
+        return 'error: usuario ya está inscrito en el curso', 404
+    
+    #guardar usuario
+    ofertasDB = shelve.open(DBformacion)
+    cursoDB = ofertasDB[curso]
+    cursoDB['Participantes'] += [usuario]
+
+    #reassignar el curso a la BD porque shelve solo se acutaliza cuando identifica un cambio en 
+    #una variable de primer nível (ofertasDB[curso] sí se actualiza, ofertasDB[curso]['Participante'] no)
+    ofertasDB[curso] = cursoDB 
+
+    #guardar cambios
+    ofertasDB.close()
+
+    return jsonify('Usuario ' + usuario + ' añadido al curso ' + nombreCurso ),201
     
     '''
         interfacesDB = m.readDB(interfacesDBfile)
