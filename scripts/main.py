@@ -5,7 +5,7 @@ from flask_httpauth import HTTPBasicAuth
 import re
 patronIf = '^[g,f][0,2,3]_[1-20]$'
 
-#  ^ = Inicio de linea
+# ^ = Inicio de linea
 # $ = final de linea
 # . = cualquier caracter menos barra n
 # ? = 0 o 1
@@ -13,7 +13,8 @@ patronIf = '^[g,f][0,2,3]_[1-20]$'
 # + = 1 o más
 DBusuarios = 'DBusuarios.shlv'
 DBformacion = 'DBformacion.shlv'
-
+errorFamilia = 'error: familia no existe, consultar familias en: https://sepe.es/HomeSepe/Personas/formacion/certificados-profesionalidad/familias-profesionales.html'
+error404 = 'error: recurso no existente'
 #generamos objeto auth de clase HTTPBasicAuth
 auth = HTTPBasicAuth()
 
@@ -31,9 +32,25 @@ app.config['DEBUG']=True
 @auth.login_required
 def web():
     return '<h1>hola</h1>'
-    
-@app.route('/api/formacion/all', methods=['GET'])
+          
+@app.route('/api/usuarios', methods=['GET'])
 @auth.login_required
+def getUsers():
+	return jsonify(m.readDB(DBusuarios))
+	
+@app.route('/api/formacion/familias/<familia>', methods=['GET']) #ver solo cursos de una familia concreta
+def getCursosFamilia(familia):
+    familiaUri = familia.replace("-", " ")
+    familiaExiste = m.checkFamilia(familiaUri)
+    if familiaExiste == False: #si la familia no coincide con las 26 establecidas, hacemos return error, de lo contrario seguimos
+        return errorFamilia, 400
+    else:
+        ofertasPorFamiliaDic = m.ofertasFamilia(familiaUri)
+        if len(ofertasPorFamiliaDic) == 0: #si la lognitud del diccionario resultante es 0 entonces no hay ofertas de esa familia.
+            return 'No hay ofertas para esta familia todavia!', 200
+        return jsonify(ofertasPorFamiliaDic)
+            
+@app.route('/api/formacion/cursos/all', methods=['GET']) #ver todos los cursos
 def getAll():
     #if 'user' in request.args and 'passwd' in request.args:
         #if m.testUser(request.args['user'],request.args['passwd']):
@@ -41,34 +58,32 @@ def getAll():
         #return '', 401 
     #else:
         #return 'query params no existen', 401
-        
-@app.route('/api/usuarios', methods=['GET'])
+              
+@app.route('/api/formacion/cursos/<curso>', methods=['GET','POST']) #get <curso> y post cuando curso = 'proponer', para el post poner un json en el body
 @auth.login_required
-def getUsers():
-	return jsonify(m.readDB(DBusuarios))
-	
-@app.route('/api/formacion/<curso>', methods=['GET','POST'])
-@auth.login_required
-def getIfUri(curso):
-    if request.method == 'POST' and curso == 'all':
-        return 'error: no uses all cuando trates de hacer un post'
-        
+def getCurso(curso): 
     ofertasDB = m.readDB(DBformacion)
     if curso in ofertasDB:
          return jsonify(ofertasDB[curso])
     else:
-        if request.method == 'POST' and request.json: #si no encuentra el curso, busca si se usar el metodo POST y un request, si esto se cumple entonces se entiende que se quiere agregar un curso
-            if 'Nombre' in request.json: #de momento crea el recurso sin utilizar información del json en el cuerpo, pero lo requiere para continuar.
+        if request.method == 'POST' and curso == 'all' and request.json: #atrapa el error de tratar de hacer 'GET' all, teniendo seleccionado POST.
+            return 'error: no utilices POST al tratar de hacer GET all',400
+        if request.method == 'POST' and curso == 'proponer' and request.json: #intenta agregar curso si se utiliza post y si 'curso' es 'proponer' y si hay un json en el body.
+            if 'Nombre' and 'Familia' in request.json: #requiere json con NOMBRE y FAMILIA. 
+                familiaExiste = m.checkFamilia(request.json['Familia'])
+                if familiaExiste == False: #si la familia no coincide con las 26 establecidas, hacemos return error, de lo contrario seguimos
+                    return errorFamilia, 400
                 ofertasDB = shelve.open(DBformacion)
-                ofertasDB[curso] = {'Nombre':curso, 'Propuestos':'1', 'Recurso de consulta':url_for('getIfUri',curso=curso)}
+                uriString = request.json['Nombre'].replace(" ", "-") #.replace reemplaza espacios por "-" para crear una uri utilizable
+                ofertasDB[uriString] = {'Nombre':request.json['Nombre'], 'Familia':request.json['Familia'], 'Propuestos':'1', 'Recurso de consulta':url_for('getCurso',curso=uriString)}
                 ofertasDB.close()
                 return jsonify(request.json),201
             else:
                 return jsonify({'error':'json incompleto'}),404
-    return 'error: recurso no existente', 404
+    return error404, 404
 
 #añadir participante al curso especificado
-@app.route('/api/formacion/<curso>/participantes', methods=['POST'])
+@app.route('/api/formacion/cursos/<curso>/participantes', methods=['POST'])
 @auth.login_required
 def addUserToCourse(curso):
     if curso == 'all':
@@ -92,7 +107,7 @@ def addUserToCourse(curso):
     cursoDB = ofertasDB[curso]
     cursoDB['Participantes'] += [usuario]
 
-    #reassignar el curso a la BD porque shelve solo se acutaliza cuando identifica un cambio en 
+    #reasignar el curso a la BD porque shelve solo se acutaliza cuando identifica un cambio en 
     #una variable de primer nível (ofertasDB[curso] sí se actualiza, ofertasDB[curso]['Participante'] no)
     ofertasDB[curso] = cursoDB 
 
