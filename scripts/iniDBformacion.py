@@ -3,17 +3,21 @@ import shelve
 database = shelve.open('DBformacion.shlv', flag ='n')
 database['DevNet'] = {
     'Nombre':'DevNet',
-    'Número_Participantes':'2', 
+    'Propuestos':'2',
     'Mínimos':'12',
     'Participantes': [
         'usuario1',
         'usuario2'
-    ]
+    ],
+    'Recurso de consulta': '/api/formacion/DevNet'
     }
-database['Big_Data'] = {
+database['Big-Data'] = {
     'Nombre':'Big Data',
-    'Número_Participantes':'0', 
+    'Propuestos':'1', 
     'Mínimos':'8',
-    'Participantes': []
+    'Participantes': [
+        'eoi'
+    ],
+    'Recurso de consulta': '/api/formacion/Big-Data'
     }
 database.close()
